@@ -1,0 +1,51 @@
+name: Build M3 Dash
+run-name: Build M3 Dash (${{ github.ref_name }})
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and upload to TestFlight
+    runs-on: xcode-27
+    permissions:
+      contents: read
+    env:
+      TEAMID: ${{ secrets.TEAMID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+      FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+      FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+    steps:
+      - name: Select Xcode version
+        run: sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Unpack source
+        run: unzip -o M3Dash-src.zip
+
+      - name: Install XcodeGen and generate project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Install fastlane
+        run: bundle install
+
+      - name: Sync clock
+        run: sudo sntp -sS time.windows.com || true
+
+      - name: Bundle identifier
+        run: bundle exec fastlane identifiers
+
+      - name: Build and upload
+        run: bundle exec fastlane build_and_upload
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: buildlog
+          path: buildlog
